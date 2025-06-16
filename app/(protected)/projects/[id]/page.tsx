@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/config"
 import { db } from "@/lib/db"
 import { projects, tasks, users, projectMembers, files } from "@/lib/db/schema"
-import { eq, desc, and, or } from "drizzle-orm"
+import { eq, desc, and, sql } from "drizzle-orm"
 import { TaskCard } from "@/components/ui/task-card"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,12 +10,25 @@ import { Badge } from "@/components/ui/badge"
 import { Plus, Users, FileText, Settings } from "lucide-react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { FileUploadForm } from "@/components/forms/file-upload-form"
 
 interface ProjectPageProps {
   params: { id: string }
 }
 
-interface Task {
+interface ProjectData {
+  id: string
+  title: string
+  description: string | null
+  ownerId: string
+  createdAt: string | null
+  owner: {
+    name: string
+    email: string
+  }
+}
+
+interface TaskData {
   id: string
   title: string
   description: string | null
@@ -26,15 +39,41 @@ interface Task {
   status: string
   priority: string
   complexity: number
-  dueDate: Date | null
-  tags: string[] | null
-  createdAt: Date | null
-  updatedAt: Date | null
+  dueDate: string | null
+  tags: string[]
+  createdAt: string | null
+  updatedAt: string | null
   assignee: {
-    name: string
-    email: string
+    name: string | null
+    email: string | null
   } | null
   creator: {
+    name: string
+    email: string
+  }
+}
+
+interface MemberData {
+  id: string
+  role: string
+  addedAt: string | null
+  user: {
+    id: string
+    name: string
+    email: string
+    department: string | null
+  }
+}
+
+interface FileData {
+  id: string
+  filename: string
+  originalName: string
+  fileSize: number
+  mimeType: string
+  description: string | null
+  uploadedAt: string | null
+  uploader: {
     name: string
     email: string
   }
@@ -60,27 +99,30 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     .from(projects)
     .innerJoin(users, eq(projects.ownerId, users.id))
     .where(eq(projects.id, params.id))
-    .limit(1)
+    .limit(1) as ProjectData[]
 
   if (!project) {
     notFound()
   }
 
   // Проверяем, является ли пользователь участником проекта
-  const membershipResult = await db
+  const [membership] = await db
     .select()
     .from(projectMembers)
-    .where(and(eq(projectMembers.projectId, params.id), eq(projectMembers.userId, user.id)))
+    .where(
+      and(
+        eq(projectMembers.projectId, params.id),
+        eq(projectMembers.userId, user.id)
+      )
+    )
     .limit(1)
-
-  const membership = membershipResult[0] as { id: string } | undefined
 
   if (!membership && user.role !== "admin") {
     notFound()
   }
 
   // Получаем задачи проекта
-  const tasksWithoutCreator = await db
+  const projectTasks = await db
     .select({
       id: tasks.id,
       title: tasks.title,
@@ -100,29 +142,15 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         name: users.name,
         email: users.email,
       },
+      creator: {
+        name: sql<string>`(SELECT name FROM ${users} WHERE id = ${tasks.creatorId})`,
+        email: sql<string>`(SELECT email FROM ${users} WHERE id = ${tasks.creatorId})`,
+      },
     })
     .from(tasks)
     .leftJoin(users, eq(tasks.assigneeId, users.id))
     .where(eq(tasks.projectId, params.id))
-    .orderBy(desc(tasks.createdAt))
-
-  // Получаем информацию о создателях
-  const creators = await db
-    .select({
-      id: users.id,
-      name: users.name,
-      email: users.email,
-    })
-    .from(users)
-    .where(
-      or(...tasksWithoutCreator.map((task) => eq(users.id, task.creatorId)))
-    )
-
-  // Объединяем данные
-  const projectTasks = tasksWithoutCreator.map((task) => ({
-    ...task,
-    creator: creators.find((creator) => creator.id === task.creatorId),
-  })) as Task[]
+    .orderBy(desc(tasks.createdAt)) as TaskData[]
 
   // Получаем участников проекта
   const members = await db
@@ -139,7 +167,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     })
     .from(projectMembers)
     .innerJoin(users, eq(projectMembers.userId, users.id))
-    .where(eq(projectMembers.projectId, params.id))
+    .where(eq(projectMembers.projectId, params.id)) as MemberData[]
 
   // Получаем файлы проекта
   const projectFiles = await db
@@ -159,7 +187,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     .from(files)
     .innerJoin(users, eq(files.uploadedBy, users.id))
     .where(eq(files.projectId, params.id))
-    .orderBy(desc(files.uploadedAt))
+    .orderBy(desc(files.uploadedAt)) as FileData[]
 
   const canManageProject = project.ownerId === user.id || user.role === "admin"
 
@@ -234,7 +262,9 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
                 Файлы проекта
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              <FileUploadForm projectId={params.id} />
+
               {projectFiles.length === 0 ? (
                 <p className="text-gray-600 text-center py-4">Файлы не загружены</p>
               ) : (
@@ -244,7 +274,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
                       <div>
                         <p className="font-medium">{file.originalName}</p>
                         <p className="text-sm text-gray-600">
-                          {file.uploader.name} • {new Date(file.uploadedAt!).toLocaleDateString("ru-RU")} •{" "}
+                          {file.uploader.name} • {file.uploadedAt ? new Date(file.uploadedAt).toLocaleDateString("ru-RU") : 'Дата не указана'} •{" "}
                           {Math.round(file.fileSize / 1024)} KB
                         </p>
                       </div>

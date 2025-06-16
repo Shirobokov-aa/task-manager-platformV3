@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/config"
 import { db } from "@/lib/db"
 import { tasks, users, comments, files, projects } from "@/lib/db/schema"
-import { eq, desc } from "drizzle-orm"
+import { eq, desc, sql } from "drizzle-orm"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -13,18 +13,13 @@ import { CommentForm } from "@/components/forms/comment-form"
 import { CommentList } from "@/components/ui/comment-list"
 import { notFound } from "next/navigation"
 import Link from "next/link"
+import { FileUploadForm } from "@/components/forms/file-upload-form"
 
 interface TaskPageProps {
   params: { id: string }
 }
 
-// Функция для проверки формата UUID
-function isValidUUID(uuid: string) {
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-  return uuidRegex.test(uuid)
-}
-
-interface Task {
+interface TaskData {
   id: string
   title: string
   description: string | null
@@ -35,16 +30,16 @@ interface Task {
   status: string
   priority: string
   complexity: number
-  dueDate: Date | null
-  tags: string[] | null
-  createdAt: Date | null
-  updatedAt: Date | null
+  dueDate: string | null
+  tags: string[]
+  createdAt: string | null
+  updatedAt: string | null
   project: {
     title: string
   }
   assignee: {
-    name: string
-    email: string
+    name: string | null
+    email: string | null
   } | null
   creator: {
     name: string
@@ -70,13 +65,8 @@ export default async function TaskPage({ params }: TaskPageProps) {
   const session = await getServerSession(authOptions)
   const user = session?.user as any
 
-  // Проверяем формат ID
-  if (!isValidUUID(params.id)) {
-    notFound()
-  }
-
-  // Получаем задачу с полной информацией
-  const taskResult = await db
+  // Получаем задачу
+  const [task] = await db
     .select({
       id: tasks.id,
       title: tasks.title,
@@ -99,31 +89,16 @@ export default async function TaskPage({ params }: TaskPageProps) {
         name: users.name,
         email: users.email,
       },
+      creator: {
+        name: sql<string>`(SELECT name FROM ${users} WHERE id = ${tasks.creatorId})`,
+        email: sql<string>`(SELECT email FROM ${users} WHERE id = ${tasks.creatorId})`,
+      },
     })
     .from(tasks)
     .innerJoin(projects, eq(tasks.projectId, projects.id))
     .leftJoin(users, eq(tasks.assigneeId, users.id))
     .where(eq(tasks.id, params.id))
-    .limit(1)
-
-  if (!taskResult[0]) {
-    notFound()
-  }
-
-  // Получаем информацию о создателе
-  const [creator] = await db
-    .select({
-      name: users.name,
-      email: users.email,
-    })
-    .from(users)
-    .where(eq(users.id, taskResult[0].creatorId))
-    .limit(1)
-
-  const task = {
-    ...taskResult[0],
-    creator,
-  } as Task
+    .limit(1) as TaskData[]
 
   if (!task) {
     notFound()
@@ -274,23 +249,29 @@ export default async function TaskPage({ params }: TaskPageProps) {
                   Файлы ({taskFiles.length})
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {taskFiles.map((file) => (
-                    <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <p className="font-medium">{file.originalName}</p>
-                        <p className="text-sm text-gray-600">
-                          {file.uploader.name} • {new Date(file.uploadedAt!).toLocaleDateString("ru-RU")} •{" "}
-                          {Math.round(file.fileSize / 1024)} KB
-                        </p>
+              <CardContent className="space-y-4">
+                <FileUploadForm taskId={params.id} />
+
+                {taskFiles.length === 0 ? (
+                  <p className="text-gray-600 text-center py-4">Файлы не загружены</p>
+                ) : (
+                  <div className="space-y-2">
+                    {taskFiles.map((file) => (
+                      <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <p className="font-medium">{file.originalName}</p>
+                          <p className="text-sm text-gray-600">
+                            {file.uploader.name} • {new Date(file.uploadedAt!).toLocaleDateString("ru-RU")} •{" "}
+                            {Math.round(file.fileSize / 1024)} KB
+                          </p>
+                        </div>
+                        <Button variant="outline" size="sm">
+                          Скачать
+                        </Button>
                       </div>
-                      <Button variant="outline" size="sm">
-                        Скачать
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -337,9 +318,9 @@ export default async function TaskPage({ params }: TaskPageProps) {
                     <p className="text-sm text-gray-600">Исполнитель</p>
                     <div className="flex items-center gap-2">
                       <Avatar className="w-6 h-6">
-                        <AvatarFallback className="text-xs">{task.assignee.name.charAt(0)}</AvatarFallback>
+                        <AvatarFallback className="text-xs">{task.assignee.name?.[0] || '?'}</AvatarFallback>
                       </Avatar>
-                      <span className="font-medium">{task.assignee.name}</span>
+                      <span className="font-medium">{task.assignee.name || 'Не назначен'}</span>
                     </div>
                   </div>
                 </div>
@@ -380,7 +361,7 @@ export default async function TaskPage({ params }: TaskPageProps) {
                 <div>
                   <p className="text-sm text-gray-600 mb-2">Теги</p>
                   <div className="flex flex-wrap gap-1">
-                    {task.tags.map((tag: string, index: number) => (
+                    {task.tags.map((tag, index) => (
                       <Badge key={index} variant="outline" className="text-xs">
                         {tag}
                       </Badge>

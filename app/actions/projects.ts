@@ -8,6 +8,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/config"
 import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
+import { sendProjectInviteNotification } from "./notifications"
 
 export async function createProject(formData: FormData) {
   const session = await getServerSession(authOptions)
@@ -56,6 +57,50 @@ export async function createProject(formData: FormData) {
   return project
 }
 
+export async function updateProject(formData: FormData) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) {
+    throw new Error("Не авторизован")
+  }
+
+  const user = session.user as any
+  const projectId = formData.get("projectId") as string
+
+  const data = {
+    title: formData.get("title") as string,
+    description: formData.get("description") as string,
+  }
+
+  const validatedData = createProjectSchema.parse(data)
+
+  // Проверяем права на проект
+  const [project] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
+  if (!project || !canEditProject(user, project)) {
+    throw new Error("Недостаточно прав для редактирования проекта")
+  }
+
+  await db
+    .update(projects)
+    .set({
+      ...validatedData,
+      updatedAt: new Date(),
+    })
+    .where(eq(projects.id, projectId))
+
+  // Аудит
+  await db.insert(auditLogs).values({
+    action: "project_updated",
+    entityType: "project",
+    entityId: projectId,
+    userId: user.id,
+    projectId,
+    details: { title: validatedData.title },
+  })
+
+  revalidatePath(`/projects/${projectId}`)
+  revalidatePath(`/projects/${projectId}/settings`)
+}
+
 export async function addProjectMember(projectId: string, userId: string, role: string) {
   const session = await getServerSession(authOptions)
   if (!session?.user) {
@@ -76,6 +121,9 @@ export async function addProjectMember(projectId: string, userId: string, role: 
     role,
   })
 
+  // Отправляем уведомление новому участнику
+  await sendProjectInviteNotification(projectId, userId, role)
+
   // Аудит
   await db.insert(auditLogs).values({
     action: "member_added",
@@ -87,4 +135,65 @@ export async function addProjectMember(projectId: string, userId: string, role: 
   })
 
   revalidatePath(`/projects/${projectId}`)
+  revalidatePath(`/projects/${projectId}/settings`)
+}
+
+export async function removeMemberFromProject(projectId: string, memberId: string) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) {
+    throw new Error("Не авторизован")
+  }
+
+  const user = session.user as any
+
+  // Проверяем права на проект
+  const [project] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
+  if (!project || !canEditProject(user, project)) {
+    throw new Error("Недостаточно прав для удаления участников")
+  }
+
+  await db.delete(projectMembers).where(eq(projectMembers.id, memberId))
+
+  // Аудит
+  await db.insert(auditLogs).values({
+    action: "member_removed",
+    entityType: "project",
+    entityId: projectId,
+    userId: user.id,
+    projectId,
+    details: { removedMemberId: memberId },
+  })
+
+  revalidatePath(`/projects/${projectId}`)
+  revalidatePath(`/projects/${projectId}/settings`)
+}
+
+export async function changeMemberRole(projectId: string, memberId: string, newRole: string) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) {
+    throw new Error("Не авторизован")
+  }
+
+  const user = session.user as any
+
+  // Проверяем права на проект
+  const [project] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
+  if (!project || !canEditProject(user, project)) {
+    throw new Error("Недостаточно прав для изменения ролей")
+  }
+
+  await db.update(projectMembers).set({ role: newRole }).where(eq(projectMembers.id, memberId))
+
+  // Аудит
+  await db.insert(auditLogs).values({
+    action: "member_role_changed",
+    entityType: "project",
+    entityId: projectId,
+    userId: user.id,
+    projectId,
+    details: { memberId, newRole },
+  })
+
+  revalidatePath(`/projects/${projectId}`)
+  revalidatePath(`/projects/${projectId}/settings`)
 }

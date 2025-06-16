@@ -7,6 +7,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/config"
 import { eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
+import { sendTaskAssignmentNotification } from "./notifications"
 
 export async function createTask(formData: FormData) {
   const session = await getServerSession(authOptions)
@@ -42,6 +43,11 @@ export async function createTask(formData: FormData) {
       dueDate: validatedData.dueDate ? new Date(validatedData.dueDate) : null,
     })
     .returning()
+
+  // Отправляем уведомление исполнителю
+  if (task.assigneeId) {
+    await sendTaskAssignmentNotification(task.id, task.assigneeId)
+  }
 
   // Аудит
   await db.insert(auditLogs).values({

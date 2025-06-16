@@ -6,6 +6,7 @@ import { createCommentSchema } from "@/lib/validation/schemas"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth/config"
 import { revalidatePath } from "next/cache"
+import { sendCommentNotification } from "./notifications"
 
 export async function createComment(formData: FormData) {
   const session = await getServerSession(authOptions)
@@ -38,6 +39,9 @@ export async function createComment(formData: FormData) {
     userId: user.id,
     details: { taskId: comment.taskId },
   })
+
+  // Отправляем уведомления участникам
+  await sendCommentNotification(comment.taskId, user.id, comment.content)
 
   revalidatePath(`/tasks/${comment.taskId}`)
   return comment
