@@ -3,39 +3,20 @@ const fs = require('fs');
 const path = require('path');
 
 async function generateHash() {
-    const password = 'password123';
+    const password = 'admin123'; // пароль для главного администратора
     const hash = await bcrypt.hash(password, 12);
 
-    const sql = `-- Создание тестовых пользователей
+    const sql = `-- Создание главного администратора
 INSERT INTO users (id, email, password_hash, name, role, department) VALUES
-    ('550e8400-e29b-41d4-a716-446655440001', 'admin@company.com', '${hash}', 'Администратор', 'admin', 'IT'),
-    ('550e8400-e29b-41d4-a716-446655440002', 'manager@company.com', '${hash}', 'Менеджер Проекта', 'project_manager', 'Разработка'),
-    ('550e8400-e29b-41d4-a716-446655440003', 'developer@company.com', '${hash}', 'Разработчик', 'executor', 'Разработка'),
-    ('550e8400-e29b-41d4-a716-446655440004', 'observer@company.com', '${hash}', 'Наблюдатель', 'observer', 'QA');
-
--- Создание тестового проекта
-INSERT INTO projects (id, title, description, owner_id) VALUES
-    ('660e8400-e29b-41d4-a716-446655440001', 'Веб-платформа задачника', 'Разработка внутренней системы управления задачами', '550e8400-e29b-41d4-a716-446655440002');
-
--- Добавление участников проекта
-INSERT INTO project_members (project_id, user_id, role) VALUES
-    ('660e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440002', 'project_manager'),
-    ('660e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440003', 'executor'),
-    ('660e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440004', 'observer');
-
--- Создание тестовых задач
-INSERT INTO tasks (id, title, description, project_id, assignee_id, creator_id, status, priority, complexity, due_date, tags) VALUES
-    ('770e8400-e29b-41d4-a716-446655440001', 'Настройка базы данных', 'Создание схемы БД и начальных данных', '660e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440002', 'completed', 'high', 3, '2024-01-15 18:00:00', ARRAY['backend', 'database']),
-    ('770e8400-e29b-41d4-a716-446655440002', 'Разработка UI компонентов', 'Создание основных компонентов интерфейса', '660e8400-e29b-41d4-a716-446655440001', '550e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440002', 'in_progress', 'medium', 5, '2024-01-20 18:00:00', ARRAY['frontend', 'ui']);
-
--- Создание подзадачи
-INSERT INTO tasks (id, title, description, project_id, parent_task_id, assignee_id, creator_id, status, priority, complexity, tags) VALUES
-    ('770e8400-e29b-41d4-a716-446655440003', 'Компонент списка задач', 'Создание компонента для отображения списка задач', '660e8400-e29b-41d4-a716-446655440001', '770e8400-e29b-41d4-a716-446655440002', '550e8400-e29b-41d4-a716-446655440003', '550e8400-e29b-41d4-a716-446655440002', 'open', 'medium', 2, ARRAY['frontend', 'component']);
+    ('550e8400-e29b-41d4-a716-446655440001', 'admin@taskmanager.com', '${hash}', 'Главный Администратор', 'admin', 'Администрация');
 `;
 
     fs.writeFileSync(path.join(__dirname, '02-seed-data.sql'), sql);
     console.log('Generated hash:', hash);
     console.log('SQL file updated successfully');
+    console.log('Admin credentials:');
+    console.log('Email: admin@taskmanager.com');
+    console.log('Password: admin123');
 }
 
 generateHash().catch(console.error);

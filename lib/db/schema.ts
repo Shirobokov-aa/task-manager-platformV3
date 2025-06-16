@@ -120,6 +120,17 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
   auditLogs: many(auditLogs),
 }))
 
+export const projectMembersRelations = relations(projectMembers, ({ one }) => ({
+  project: one(projects, {
+    fields: [projectMembers.projectId],
+    references: [projects.id],
+  }),
+  user: one(users, {
+    fields: [projectMembers.userId],
+    references: [users.id],
+  }),
+}))
+
 export const tasksRelations = relations(tasks, ({ one, many }) => ({
   project: one(projects, {
     fields: [tasks.projectId],
@@ -143,6 +154,43 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
   subtasks: many(tasks, { relationName: "parent" }),
   comments: many(comments),
   files: many(files),
+}))
+
+export const filesRelations = relations(files, ({ one }) => ({
+  project: one(projects, {
+    fields: [files.projectId],
+    references: [projects.id],
+  }),
+  task: one(tasks, {
+    fields: [files.taskId],
+    references: [tasks.id],
+  }),
+  uploader: one(users, {
+    fields: [files.uploadedBy],
+    references: [users.id],
+  }),
+}))
+
+export const commentsRelations = relations(comments, ({ one }) => ({
+  task: one(tasks, {
+    fields: [comments.taskId],
+    references: [tasks.id],
+  }),
+  author: one(users, {
+    fields: [comments.authorId],
+    references: [users.id],
+  }),
+}))
+
+export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
+  user: one(users, {
+    fields: [auditLogs.userId],
+    references: [users.id],
+  }),
+  project: one(projects, {
+    fields: [auditLogs.projectId],
+    references: [projects.id],
+  }),
 }))
 
 export type User = typeof users.$inferSelect

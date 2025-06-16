@@ -150,11 +150,20 @@ export async function sendProjectInviteNotification(projectId: string, userId: s
       })
       .from(projects)
       .innerJoin(users, eq(projects.ownerId, users.id))
-      .innerJoin(users, eq(users.id, userId))
       .where(eq(projects.id, projectId))
       .limit(1)
 
-    if (!projectInfo) return
+    // Получаем информацию о приглашаемом пользователе отдельным запросом
+    const [invitedUser] = await db
+      .select({
+        name: users.name,
+        email: users.email,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1)
+
+    if (!projectInfo || !invitedUser) return
 
     const roleLabels = {
       project_manager: "Руководитель проекта",
@@ -164,7 +173,7 @@ export async function sendProjectInviteNotification(projectId: string, userId: s
 
     const emailContent = `
       <h2>Приглашение в проект</h2>
-      <p>Здравствуйте, ${projectInfo.user.name}!</p>
+      <p>Здравствуйте, ${invitedUser.name}!</p>
       <p>Вас пригласили участвовать в проекте "${projectInfo.project.title}" в роли "${roleLabels[role as keyof typeof roleLabels]}".</p>
       <p>Приглашение отправил: ${projectInfo.owner.name}</p>
 
@@ -173,7 +182,7 @@ export async function sendProjectInviteNotification(projectId: string, userId: s
     `
 
     await sendEmail({
-      to: projectInfo.user.email,
+      to: invitedUser.email,
       subject: `Приглашение в проект: ${projectInfo.project.title}`,
       html: emailContent,
     })
