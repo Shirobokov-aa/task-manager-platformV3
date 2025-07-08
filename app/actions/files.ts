@@ -31,27 +31,31 @@ export async function uploadFile(formData: FormData) {
   }
 
   const user = session.user as any
-  const file = formData.get("file") as File | null
+  const file = formData.get("file")
   const projectId = formData.get("projectId") as string | null
   const taskId = formData.get("taskId") as string | null
   const description = formData.get("description") as string | null
 
-  if (!file || !(file instanceof File)) {
+  // Проверяем что файл существует и является объектом типа File
+  if (!file || typeof file === 'string' || !file.size || !file.name || !file.type) {
     throw new Error("Файл не выбран")
   }
 
+  // Приводим к типу File для работы с его свойствами
+  const uploadedFile = file as File
+
   // Проверяем размер файла
-  if (file.size > MAX_FILE_SIZE) {
+  if (uploadedFile.size > MAX_FILE_SIZE) {
     throw new Error("Размер файла превышает 10MB")
   }
 
   // Проверяем тип файла
-  if (!ALLOWED_TYPES.includes(file.type)) {
+  if (!ALLOWED_TYPES.includes(uploadedFile.type)) {
     throw new Error("Неподдерживаемый тип файла")
   }
 
   // Создаем уникальное имя файла
-  const fileExtension = file.name.split(".").pop()
+  const fileExtension = uploadedFile.name.split(".").pop()
   const filename = `${uuidv4()}.${fileExtension}`
 
   // Определяем путь для сохранения
@@ -63,7 +67,7 @@ export async function uploadFile(formData: FormData) {
     await mkdir(uploadDir, { recursive: true })
 
     // Сохраняем файл
-    const bytes = await file.arrayBuffer()
+    const bytes = await uploadedFile.arrayBuffer()
     const buffer = Buffer.from(bytes)
     await writeFile(filePath, buffer)
 
@@ -72,10 +76,10 @@ export async function uploadFile(formData: FormData) {
       .insert(files)
       .values({
         filename,
-        originalName: file.name,
+        originalName: uploadedFile.name,
         filePath: `/uploads/${filename}`,
-        fileSize: file.size,
-        mimeType: file.type,
+        fileSize: uploadedFile.size,
+        mimeType: uploadedFile.type,
         description: description || null,
         projectId: projectId || null,
         taskId: taskId || null,
@@ -91,8 +95,8 @@ export async function uploadFile(formData: FormData) {
       userId: user.id,
       projectId: projectId || null,
       details: {
-        filename: file.name,
-        fileSize: file.size,
+        filename: uploadedFile.name,
+        fileSize: uploadedFile.size,
         taskId: taskId || null,
       },
     })
@@ -106,7 +110,8 @@ export async function uploadFile(formData: FormData) {
 
     return savedFile
   } catch (error) {
-    throw new Error("Ошибка загрузки файла")
+    console.error("Ошибка загрузки файла:", error)
+    throw new Error(`Ошибка загрузки файла: ${error instanceof Error ? error.message : 'неизвестная ошибка'}`)
   }
 }
 

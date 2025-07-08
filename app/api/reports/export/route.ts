@@ -3,7 +3,7 @@ import { exportProjectsReport, exportTasksReport } from "@/app/actions/reports"
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
+    const searchParams = request.nextUrl.searchParams
     const type = searchParams.get("type") // 'projects' | 'tasks'
     const format = searchParams.get("format") as "pdf" | "excel"
     const projectId = searchParams.get("projectId")
@@ -48,3 +48,6 @@ export async function GET(request: NextRequest) {
     )
   }
 }
+
+// Помечаем роут как динамический
+export const dynamic = 'force-dynamic'

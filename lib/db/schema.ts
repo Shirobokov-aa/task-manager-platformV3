@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, integer, jsonb } from "drizzle-orm/pg-core"
+import { pgTable, uuid, varchar, text, timestamp, integer, jsonb, boolean } from "drizzle-orm/pg-core"
 import { relations } from "drizzle-orm"
 
 export const users = pgTable("users", {
@@ -35,14 +35,14 @@ export const projectMembers = pgTable("project_members", {
   addedAt: timestamp("added_at").defaultNow(),
 })
 
-export const tasks = pgTable("tasks", {
+export const tasks: any = pgTable("tasks", {
   id: uuid("id").primaryKey().defaultRandom(),
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
   projectId: uuid("project_id")
     .notNull()
     .references(() => projects.id, { onDelete: "cascade" }),
-  parentTaskId: uuid("parent_task_id").references(() => tasks.id, { onDelete: "cascade" }),
+  parentTaskId: uuid("parent_task_id").references((): any => tasks.id, { onDelete: "cascade" }),
   assigneeId: uuid("assignee_id").references(() => users.id, { onDelete: "set null" }),
   creatorId: uuid("creator_id")
     .notNull()
@@ -98,6 +98,24 @@ export const auditLogs = pgTable("audit_logs", {
   createdAt: timestamp("created_at").defaultNow(),
 })
 
+export const notifications = pgTable("notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  recipientId: uuid("recipient_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  triggeredById: uuid("triggered_by_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  type: varchar("type", { length: 50 }).notNull(), // 'task_assigned', 'comment_added', 'project_invite', 'deadline_reminder'
+  title: varchar("title", { length: 255 }).notNull(),
+  message: text("message").notNull(),
+  entityType: varchar("entity_type", { length: 50 }).notNull(), // 'task', 'project', 'comment'
+  entityId: uuid("entity_id").notNull(),
+  projectId: uuid("project_id").references(() => projects.id, { onDelete: "cascade" }),
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+})
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   ownedProjects: many(projects),
@@ -107,6 +125,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   comments: many(comments),
   uploadedFiles: many(files),
   auditLogs: many(auditLogs),
+  receivedNotifications: many(notifications, { relationName: "recipient" }),
+  triggeredNotifications: many(notifications, { relationName: "triggeredBy" }),
 }))
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
@@ -193,9 +213,27 @@ export const auditLogsRelations = relations(auditLogs, ({ one }) => ({
   }),
 }))
 
+export const notificationsRelations = relations(notifications, ({ one }) => ({
+  recipient: one(users, {
+    fields: [notifications.recipientId],
+    references: [users.id],
+    relationName: "recipient",
+  }),
+  triggeredBy: one(users, {
+    fields: [notifications.triggeredById],
+    references: [users.id],
+    relationName: "triggeredBy",
+  }),
+  project: one(projects, {
+    fields: [notifications.projectId],
+    references: [projects.id],
+  }),
+}))
+
 export type User = typeof users.$inferSelect
 export type Project = typeof projects.$inferSelect
 export type Task = typeof tasks.$inferSelect
 export type Comment = typeof comments.$inferSelect
 export type File = typeof files.$inferSelect
 export type AuditLog = typeof auditLogs.$inferSelect
+export type Notification = typeof notifications.$inferSelect

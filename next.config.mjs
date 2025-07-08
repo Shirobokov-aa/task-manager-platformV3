@@ -5,7 +5,7 @@ const nextConfig = {
       allowedOrigins: ['localhost:3000'],
     },
   },
-  output: 'standalone',
+  // output: 'standalone', // Временно отключено из-за проблем с символическими ссылками на Windows
   eslint: {
     ignoreDuringBuilds: true,
   },

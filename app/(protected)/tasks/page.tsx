@@ -5,10 +5,7 @@ import { tasks, users, projects } from "@/lib/db/schema"
 import { eq, desc, or, ilike, and } from "drizzle-orm"
 import { sql } from "drizzle-orm"
 import { TaskCard } from "@/components/ui/task-card"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search } from "lucide-react"
+import { TaskSearchForm } from "@/components/ui/task-search-form"
 
 interface TasksPageProps {
   searchParams: {
@@ -127,48 +124,11 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
       </div>
 
       {/* Фильтры */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Поиск и фильтры</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Поиск по названию..."
-                className="pl-10"
-                defaultValue={searchParams.search}
-                name="search"
-              />
-            </div>
-            <Select defaultValue={searchParams.status}>
-              <SelectTrigger>
-                <SelectValue placeholder="Статус" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Все статусы</SelectItem>
-                <SelectItem value="open">Открыта</SelectItem>
-                <SelectItem value="in_progress">В работе</SelectItem>
-                <SelectItem value="completed">Завершена</SelectItem>
-                <SelectItem value="cancelled">Отменена</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select defaultValue={searchParams.priority}>
-              <SelectTrigger>
-                <SelectValue placeholder="Приоритет" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Все приоритеты</SelectItem>
-                <SelectItem value="low">Низкий</SelectItem>
-                <SelectItem value="medium">Средний</SelectItem>
-                <SelectItem value="high">Высокий</SelectItem>
-                <SelectItem value="critical">Критический</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardContent>
-      </Card>
+      <TaskSearchForm
+        initialSearch={searchParams.search}
+        initialStatus={searchParams.status}
+        initialPriority={searchParams.priority}
+      />
 
       {/* Список задач */}
       {userTasks.length === 0 ? (

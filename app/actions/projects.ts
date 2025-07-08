@@ -197,3 +197,39 @@ export async function changeMemberRole(projectId: string, memberId: string, newR
   revalidatePath(`/projects/${projectId}`)
   revalidatePath(`/projects/${projectId}/settings`)
 }
+
+export async function deleteProject(projectId: string) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) {
+    throw new Error("Не авторизован")
+  }
+
+  const user = session.user as any
+
+  // Получаем информацию о проекте
+  const [project] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
+  if (!project) {
+    throw new Error("Проект не найден")
+  }
+
+  // Проверяем права на удаление (только владелец проекта или админ)
+  if (project.ownerId !== user.id && user.role !== "admin") {
+    throw new Error("Недостаточно прав для удаления проекта")
+  }
+
+  // Аудит перед удалением
+  await db.insert(auditLogs).values({
+    action: "project_deleted",
+    entityType: "project",
+    entityId: projectId,
+    userId: user.id,
+    projectId,
+    details: { title: project.title, ownerId: project.ownerId },
+  })
+
+  // Удаляем проект (каскадное удаление удалит связанные записи)
+  await db.delete(projects).where(eq(projects.id, projectId))
+
+  revalidatePath("/projects")
+  revalidatePath(`/projects/${projectId}`)
+}

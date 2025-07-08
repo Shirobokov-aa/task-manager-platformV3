@@ -26,17 +26,22 @@ interface AuditLog {
 
 const actionLabels: Record<string, string> = {
   project_created: "Создан проект",
+  project_deleted: "Удален проект",
+  project_updated: "Обновлен проект",
   member_added: "Добавлен участник",
   member_removed: "Удален участник",
+  member_role_changed: "Изменена роль участника",
   task_created: "Создана задача",
   task_status_changed: "Изменен статус задачи",
   task_assigned: "Назначена задача",
   comment_created: "Добавлен комментарий",
   file_uploaded: "Загружен файл",
+  file_deleted: "Удален файл",
 }
 
 const actionColors: Record<string, string> = {
   project_created: "bg-blue-100 text-blue-800",
+  project_deleted: "bg-red-100 text-red-800",
   member_added: "bg-green-100 text-green-800",
   member_removed: "bg-red-100 text-red-800",
   task_created: "bg-purple-100 text-purple-800",
@@ -44,6 +49,35 @@ const actionColors: Record<string, string> = {
   task_assigned: "bg-indigo-100 text-indigo-800",
   comment_created: "bg-gray-100 text-gray-800",
   file_uploaded: "bg-orange-100 text-orange-800",
+  file_deleted: "bg-red-100 text-red-800",
+}
+
+// Функция для форматирования деталей аудита в понятный текст
+function formatAuditDetails(action: string, details: Record<string, unknown>): string {
+  switch (action) {
+    case 'task_status_changed':
+      return `Статус изменен с "${details.oldStatus}" на "${details.newStatus}"`
+    case 'project_created':
+      return `Создан проект "${details.title}"`
+    case 'project_deleted':
+      return `Удален проект "${details.title}"`
+    case 'task_created':
+      return `Создана задача "${details.title}"${details.assigneeId ? ' и назначена исполнителю' : ''}`
+    case 'member_added':
+      return `Добавлен участник с ролью "${details.role}"`
+    case 'member_removed':
+      return `Удален участник проекта`
+    case 'member_role_changed':
+      return `Изменена роль участника на "${details.newRole}"`
+    case 'file_uploaded':
+      return `Загружен файл "${details.filename}" (${Math.round((details.fileSize as number) / 1024)} KB)`
+    case 'file_deleted':
+      return `Удален файл "${details.filename}"`
+    case 'comment_created':
+      return `Добавлен комментарий к задаче`
+    default:
+      return JSON.stringify(details, null, 2)
+  }
 }
 
 export default async function AuditPage() {
@@ -131,10 +165,8 @@ export default async function AuditPage() {
                     </div>
 
                     {log.details && (
-                      <div className="mt-2 text-sm text-gray-700">
-                        <pre className="whitespace-pre-wrap font-mono text-xs bg-gray-50 p-2 rounded">
-                          {JSON.stringify(log.details, null, 2)}
-                        </pre>
+                      <div className="mt-2 text-sm text-gray-700 bg-gray-50 p-2 rounded">
+                        {formatAuditDetails(log.action, log.details)}
                       </div>
                     )}
                   </div>

@@ -5,10 +5,8 @@ export default {
   out: './drizzle',
   dialect: 'postgresql',
   dbCredentials: {
-    host: 'localhost',
-    port: 5432,
-    database: 'taskmanager',
-    user: 'taskmanager',
-    password: 'taskmanager_password'
-  }
+    url: process.env.DATABASE_URL || 'postgresql://taskmanager:taskmanager_password@localhost:5432/taskmanager'
+  },
+  verbose: true,
+  strict: true,
 } satisfies Config

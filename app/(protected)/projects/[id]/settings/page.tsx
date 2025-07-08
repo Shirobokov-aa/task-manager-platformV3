@@ -11,6 +11,7 @@ import { notFound } from "next/navigation"
 import { ProjectSettingsForm } from "@/components/forms/project-settings-form"
 import { AddMemberForm } from "@/components/forms/add-member-form"
 import { MembersList } from "@/components/ui/members-list"
+import { DeleteProjectForm } from "@/components/forms/delete-project-form"
 
 interface ProjectSettingsPageProps {
   params: { id: string }
@@ -152,9 +153,7 @@ export default async function ProjectSettingsPage({ params }: ProjectSettingsPag
             <p className="text-sm text-red-700 mb-4">
               Это действие нельзя отменить. Все задачи, комментарии и файлы будут удалены навсегда.
             </p>
-            <Button variant="destructive" size="sm">
-              Удалить проект
-            </Button>
+            <DeleteProjectForm projectId={params.id} projectTitle={project.title} />
           </div>
         </CardContent>
       </Card>

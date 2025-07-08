@@ -10,9 +10,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Bell, Search, Plus } from "lucide-react"
+import { Search, Plus } from "lucide-react"
 import { signOut } from "next-auth/react"
 import Link from "next/link"
+import { NotificationsBell } from "@/components/ui/notifications-bell"
 
 interface HeaderProps {
   user: {
@@ -56,9 +57,7 @@ export function Header({ user }: HeaderProps) {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button variant="ghost" size="icon">
-            <Bell className="h-5 w-5" />
-          </Button>
+          <NotificationsBell />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
