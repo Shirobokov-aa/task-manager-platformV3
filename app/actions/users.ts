@@ -169,3 +169,163 @@ export async function deactivateUser(userId: string) {
 
   revalidatePath("/users")
 }
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Введите текущий пароль"),
+  newPassword: z.string().min(6, "Новый пароль должен содержать минимум 6 символов"),
+  confirmPassword: z.string().min(1, "Подтвердите новый пароль"),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Пароли не совпадают",
+  path: ["confirmPassword"],
+})
+
+export async function changePassword(formData: FormData) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) {
+    throw new Error("Не авторизован")
+  }
+
+  const user = session.user as any
+
+  const data = {
+    currentPassword: formData.get("currentPassword") as string,
+    newPassword: formData.get("newPassword") as string,
+    confirmPassword: formData.get("confirmPassword") as string,
+  }
+
+  const validatedData = changePasswordSchema.parse(data)
+
+  // Получаем текущего пользователя из БД
+  const [currentUser] = await db.select().from(users).where(eq(users.id, user.id)).limit(1)
+  if (!currentUser) {
+    throw new Error("Пользователь не найден")
+  }
+
+  // Проверяем текущий пароль
+  const isCurrentPasswordValid = await bcrypt.compare(validatedData.currentPassword, currentUser.passwordHash)
+  if (!isCurrentPasswordValid) {
+    throw new Error("Неверный текущий пароль")
+  }
+
+  // Проверяем, что новый пароль отличается от текущего
+  const isSamePassword = await bcrypt.compare(validatedData.newPassword, currentUser.passwordHash)
+  if (isSamePassword) {
+    throw new Error("Новый пароль должен отличаться от текущего")
+  }
+
+  // Хешируем новый пароль
+  const newPasswordHash = await bcrypt.hash(validatedData.newPassword, 12)
+
+  // Обновляем пароль в БД
+  await db
+    .update(users)
+    .set({
+      passwordHash: newPasswordHash,
+      updatedAt: new Date()
+    })
+    .where(eq(users.id, user.id))
+
+  // Аудит
+  await db.insert(auditLogs).values({
+    action: "password_changed",
+    entityType: "user",
+    entityId: user.id,
+    userId: user.id,
+    details: { timestamp: new Date().toISOString() },
+  })
+
+  revalidatePath("/settings")
+  return { success: true, message: "Пароль успешно изменен" }
+}
+
+const updateProfileSchema = z.object({
+  name: z.string()
+    .min(1, "Имя обязательно")
+    .max(255, "Имя не может быть длиннее 255 символов")
+    .trim(),
+  email: z.string()
+    .email("Некорректный email адрес")
+    .max(255, "Email не может быть длиннее 255 символов")
+    .toLowerCase()
+    .trim(),
+  department: z.string()
+    .max(255, "Название отдела не может быть длиннее 255 символов")
+    .trim()
+    .optional()
+    .or(z.literal("")),
+})
+
+export async function updateProfile(formData: FormData) {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) {
+    throw new Error("Не авторизован")
+  }
+
+  const user = session.user as any
+
+  const data = {
+    name: formData.get("name") as string,
+    email: formData.get("email") as string,
+    department: (formData.get("department") as string) || "",
+  }
+
+  const validatedData = updateProfileSchema.parse(data)
+
+  // Проверяем, не занят ли email другим пользователем
+  if (validatedData.email !== user.email) {
+    const existingUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, validatedData.email))
+      .limit(1)
+
+    if (existingUser.length > 0 && existingUser[0].id !== user.id) {
+      throw new Error("Пользователь с таким email уже существует")
+    }
+  }
+
+  // Обновляем профиль
+  const [updatedUser] = await db
+    .update(users)
+    .set({
+      name: validatedData.name,
+      email: validatedData.email,
+      department: validatedData.department && validatedData.department.length > 0 ? validatedData.department : null,
+      updatedAt: new Date()
+    })
+    .where(eq(users.id, user.id))
+    .returning()
+
+  if (!updatedUser) {
+    throw new Error("Не удалось обновить профиль")
+  }
+
+  // Аудит
+  await db.insert(auditLogs).values({
+    action: "profile_updated",
+    entityType: "user",
+    entityId: user.id,
+    userId: user.id,
+    details: {
+      name: validatedData.name,
+      email: validatedData.email,
+      department: validatedData.department
+    },
+  })
+
+  revalidatePath("/settings")
+  revalidatePath("/")
+
+    // Возвращаем обновленные данные для клиента
+  return {
+    success: true,
+    message: "Профиль успешно обновлен",
+    updatedUser: {
+      id: updatedUser.id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      department: updatedUser.department
+    }
+  }
+}
