@@ -11,6 +11,7 @@ import { Plus, Users, FileText, Settings } from "lucide-react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { FileUploadForm } from "@/components/forms/file-upload-form"
+import { FileDeleteButton } from "@/components/ui/file-delete-button"
 
 interface ProjectPageProps {
   params: { id: string }
@@ -269,20 +270,36 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
                 <p className="text-gray-600 text-center py-4">Файлы не загружены</p>
               ) : (
                 <div className="space-y-2">
-                  {projectFiles.map((file) => (
-                    <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <p className="font-medium">{file.originalName}</p>
-                        <p className="text-sm text-gray-600">
-                          {file.uploader.name} • {file.uploadedAt ? new Date(file.uploadedAt).toLocaleDateString("ru-RU") : 'Дата не указана'} •{" "}
-                          {Math.round(file.fileSize / 1024)} KB
-                        </p>
+                  {projectFiles.map((file) => {
+                    // Определяем, может ли пользователь удалить файл
+                    const canDeleteFile = user.role === "admin" ||
+                                         file.uploader.email === user.email ||
+                                         canManageProject;
+
+                    return (
+                      <div key={file.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <p className="font-medium">{file.originalName}</p>
+                          <p className="text-sm text-gray-600">
+                            {file.uploader.name} • {file.uploadedAt ? new Date(file.uploadedAt).toLocaleDateString("ru-RU") : 'Дата не указана'} •{" "}
+                            {Math.round(file.fileSize / 1024)} KB
+                          </p>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="sm" asChild>
+                            <a href={`/api/files/${file.id}`} download>
+                              Скачать
+                            </a>
+                          </Button>
+                          <FileDeleteButton
+                            fileId={file.id}
+                            fileName={file.originalName}
+                            canDelete={canDeleteFile}
+                          />
+                        </div>
                       </div>
-                      <Button variant="outline" size="sm">
-                        Скачать
-                      </Button>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </CardContent>

@@ -56,7 +56,7 @@ export function TaskSearchForm({ initialSearch = "", initialStatus = "", initial
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Поиск и фильтры</CardTitle>
+        <CardTitle className="">Поиск и фильтры</CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">

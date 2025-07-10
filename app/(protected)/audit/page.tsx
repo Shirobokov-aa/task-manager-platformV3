@@ -37,47 +37,114 @@ const actionLabels: Record<string, string> = {
   comment_created: "Добавлен комментарий",
   file_uploaded: "Загружен файл",
   file_deleted: "Удален файл",
+  notification_sent: "Отправлено уведомление",
+  user_created: "Создан пользователь",
+  user_updated: "Обновлен пользователь",
+  profile_updated: "Обновлен профиль",
 }
 
 const actionColors: Record<string, string> = {
   project_created: "bg-blue-100 text-blue-800",
   project_deleted: "bg-red-100 text-red-800",
+  project_updated: "bg-blue-100 text-blue-800",
   member_added: "bg-green-100 text-green-800",
   member_removed: "bg-red-100 text-red-800",
+  member_role_changed: "bg-yellow-100 text-yellow-800",
   task_created: "bg-purple-100 text-purple-800",
   task_status_changed: "bg-yellow-100 text-yellow-800",
   task_assigned: "bg-indigo-100 text-indigo-800",
   comment_created: "bg-gray-100 text-gray-800",
   file_uploaded: "bg-orange-100 text-orange-800",
   file_deleted: "bg-red-100 text-red-800",
+  notification_sent: "bg-cyan-100 text-cyan-800",
+  user_created: "bg-emerald-100 text-emerald-800",
+  user_updated: "bg-emerald-100 text-emerald-800",
+  profile_updated: "bg-emerald-100 text-emerald-800",
 }
 
 // Функция для форматирования деталей аудита в понятный текст
 function formatAuditDetails(action: string, details: Record<string, unknown>): string {
   switch (action) {
     case 'task_status_changed':
-      return `Статус изменен с "${details.oldStatus}" на "${details.newStatus}"`
+      const oldStatus = getStatusLabel(details.oldStatus as string);
+      const newStatus = getStatusLabel(details.newStatus as string);
+      return `Статус изменен с "${oldStatus}" на "${newStatus}"`;
+
     case 'project_created':
-      return `Создан проект "${details.title}"`
+      return `Создан проект "${details.title || 'Без названия'}"`;
+
     case 'project_deleted':
-      return `Удален проект "${details.title}"`
+      return `Удален проект "${details.title || 'Без названия'}"`;
+
+    case 'project_updated':
+      return `Обновлены настройки проекта`;
+
     case 'task_created':
-      return `Создана задача "${details.title}"${details.assigneeId ? ' и назначена исполнителю' : ''}`
+      return `Создана задача "${details.title || 'Без названия'}"${details.assigneeId ? ' и назначена исполнителю' : ''}`;
+
+    case 'task_assigned':
+      return `Назначена задача исполнителю`;
+
     case 'member_added':
-      return `Добавлен участник с ролью "${details.role}"`
+      return `Добавлен участник в проект`;
+
     case 'member_removed':
-      return `Удален участник проекта`
+      return `Удален участник из проекта`;
+
     case 'member_role_changed':
-      return `Изменена роль участника на "${details.newRole}"`
+      return `Изменена роль участника`;
+
     case 'file_uploaded':
-      return `Загружен файл "${details.filename}" (${Math.round((details.fileSize as number) / 1024)} KB)`
+      const fileSize = details.fileSize as number;
+      const fileName = details.filename as string;
+      return `Загружен файл "${fileName}"${fileSize ? ` (${Math.round(fileSize / 1024)} KB)` : ''}`;
+
     case 'file_deleted':
-      return `Удален файл "${details.filename}"`
+      return `Удален файл "${details.filename || 'Неизвестный файл'}"`;
+
     case 'comment_created':
-      return `Добавлен комментарий к задаче`
+      return `Добавлен комментарий к задаче`;
+
+    case 'notification_sent':
+      const type = details.type as string;
+      const recipients = details.recipients as any[];
+      return `Отправлено уведомление ${getNotificationTypeLabel(type)}${recipients ? ` (получателей: ${recipients.length})` : ''}`;
+
+    case 'user_created':
+      return `Создан новый пользователь`;
+
+    case 'user_updated':
+      return `Обновлен профиль пользователя`;
+
+    case 'profile_updated':
+      return `Обновлен профиль пользователя`;
+
     default:
-      return JSON.stringify(details, null, 2)
+      // Для неизвестных действий показываем базовую информацию
+      return `Выполнено действие в системе`;
   }
+}
+
+// Вспомогательная функция для перевода статусов
+function getStatusLabel(status: string): string {
+  const statusLabels: Record<string, string> = {
+    open: "Открыто",
+    in_progress: "В работе",
+    completed: "Завершено",
+    cancelled: "Отменено",
+  };
+  return statusLabels[status] || status;
+}
+
+// Вспомогательная функция для перевода типов уведомлений
+function getNotificationTypeLabel(type: string): string {
+  const typeLabels: Record<string, string> = {
+    task_assignment: "о назначении задачи",
+    comment_notification: "о новом комментарии",
+    deadline_reminder: "напоминание о сроке",
+    status_change: "об изменении статуса",
+  };
+  return typeLabels[type] || "системное";
 }
 
 export default async function AuditPage() {

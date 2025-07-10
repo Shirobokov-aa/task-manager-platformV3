@@ -89,11 +89,11 @@ function TaskKanbanCard({ task }: { task: Task }) {
     <Link href={`/tasks/${task.id}`}>
       <Card className="hover:shadow-md transition-shadow cursor-pointer mb-3 bg-white">
         <CardHeader className="pb-2">
-          <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col gap-2">
             <CardTitle className="text-sm font-medium line-clamp-2 flex-1">
               {task.title}
             </CardTitle>
-            <Badge className={priorityColors[task.priority as keyof typeof priorityColors]} variant="secondary">
+            <Badge className={`${priorityColors[task.priority as keyof typeof priorityColors]} w-fit`} variant="secondary">
               <Flag className="w-3 h-3 mr-1" />
               {priorityLabels[task.priority as keyof typeof priorityLabels]}
             </Badge>

@@ -20,6 +20,13 @@ const priorityColors = {
   critical: "bg-red-100 text-red-800",
 }
 
+const priorityLabels = {
+  low: "Низкий",
+  medium: "Средний",
+  high: "Высокий",
+  critical: "Критический",
+}
+
 const statusColors = {
   open: "bg-blue-100 text-blue-800",
   in_progress: "bg-purple-100 text-purple-800",
@@ -27,19 +34,26 @@ const statusColors = {
   cancelled: "bg-gray-100 text-gray-800",
 }
 
+const statusLabels = {
+  open: "Открыто",
+  in_progress: "В работе",
+  completed: "Завершено",
+  cancelled: "Отменено",
+}
+
 export function TaskCard({ task }: TaskCardProps) {
   return (
     <Link href={`/tasks/${task.id}`}>
       <Card className="hover:shadow-md transition-shadow cursor-pointer">
         <CardHeader className="pb-3">
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col gap-2">
             <CardTitle className="text-lg font-semibold line-clamp-2">{task.title}</CardTitle>
             <div className="flex gap-2">
               <Badge className={priorityColors[task.priority as keyof typeof priorityColors]}>
                 <Flag className="w-3 h-3 mr-1" />
-                {task.priority}
+                {priorityLabels[task.priority as keyof typeof priorityLabels]}
               </Badge>
-              <Badge className={statusColors[task.status as keyof typeof statusColors]}>{task.status}</Badge>
+              <Badge className={statusColors[task.status as keyof typeof statusColors]}>{statusLabels[task.status as keyof typeof statusLabels]}</Badge>
             </div>
           </div>
         </CardHeader>
@@ -82,7 +96,7 @@ export function TaskCard({ task }: TaskCardProps) {
 
           {task.tags && task.tags.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-3">
-              {task.tags.map((tag, index) => (
+              {task.tags.map((tag: string, index: number) => (
                 <Badge key={index} variant="outline" className="text-xs">
                   {tag}
                 </Badge>

@@ -95,15 +95,15 @@ export function TasksView({ tasks, searchParams }: TasksViewProps) {
       </div>
 
       {/* Фильтры и переключатель видов */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex-1">
+      <div className="flex flex-col gap-4">
+        <div className="">
           <TaskSearchForm
             initialSearch={searchParams.search}
             initialStatus={searchParams.status}
             initialPriority={searchParams.priority}
           />
         </div>
-        <div className="flex-shrink-0">
+        <div className="">
           <ViewToggle
             currentView={currentView}
             onViewChange={setCurrentView}
