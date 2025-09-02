@@ -78,19 +78,6 @@ export default function SignInPage() {
               {isLoading ? "Вход..." : "Войти"}
             </Button>
           </form>
-
-          <div className="mt-6 text-center text-sm text-gray-600">
-            <p>Тестовые учетные данные:</p>
-            <p className="mt-2">
-              <strong>Администратор:</strong> admin@company.com / password123
-            </p>
-            <p>
-              <strong>Менеджер:</strong> manager@company.com / password123
-            </p>
-            <p>
-              <strong>Разработчик:</strong> developer@company.com / password123
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>
